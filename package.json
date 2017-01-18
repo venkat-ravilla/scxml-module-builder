@@ -1,0 +1,22 @@
+{
+  "name": "scxml-module-builder",
+  "version": "1.0.0",
+  "description": "Building a single SCXML file from different sub modules.",
+  "main": "index.js",
+  "scripts": {
+    "test": "test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/venkat-ravilla/scxml-module-builder.git"
+  },
+  "author": "venkataramana.r",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/venkat-ravilla/scxml-module-builder/issues"
+  },
+  "homepage": "https://github.com/venkat-ravilla/scxml-module-builder#readme",
+  "dependencies": {
+    "xml2json": "^0.11.0"
+  }
+}

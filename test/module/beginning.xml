@@ -1,0 +1,11 @@
+<state id="beginning">
+  <transition event="initialize" target="data_validation">
+    <log expr="{event: _event.name, message: _event.data}" label="ATLOG:channel.test.event.data"/>
+    <assign location="DNIS" expr="_event.data.dnis ? _event.data.dnis : DNIS"/>
+    <assign location="ani" expr="_event.data.ani"/>
+    <assign location="countryCode" expr="_event.data.countryCode"/>
+    <assign location="clientId" expr="_event.data.clientId"/>
+    <assign location="sessionId" expr="_event.data.sessionId"/>
+    <assign location="callBeginTimeStamp" expr="_event.data.beginTimeStamp"/>
+  </transition>
+</state>

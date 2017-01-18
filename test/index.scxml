@@ -1,0 +1,158 @@
+<?xml version="1.0"?>
+<scxml xmlns="http://www.w3.org/2005/07/scxml"
+  xmlns:tfs="http://www.247-inc.com/scxml"
+  version="1.0" initial="beginning">
+
+  <!--==============DATAMODEL START=========================-->
+    <datamodel>
+      <data id="connectionid"/>
+      <data id="environment"/>
+      <data id="DNIS"/>
+      <data id="ani"/>
+      <data id="countryCode "/>
+      <data id="clientId"/>
+      <data id="sessionId"/>
+      <data id="callBeginTimeStamp"/>
+      <data id="clientConfig" expr="{}"/>
+      <data id="agentAvailability_resp" expr="{}"/>
+      <data id="chatId"/>
+      <data id="smsMessage"/>
+      <data id="smsShortMessage"/>
+      <data id="smsId"/>
+    </datamodel>
+  <!--============DATAMODEL END==================================-->
+  <script src="dist/ivr2chat-min.js"/>
+  <script><![CDATA[
+    //Serialize SCXML document
+    _x.serialize = true;
+    var actions = [];
+    var q="";
+    var userResponse="";
+    var context,href_answer,reason;
+    var prompt_name="";
+    var em_snapshot_baseurl="";
+    var em_snapshot_clientconfig_url="";
+    var omnichannel_orch_agent_avail_url="";
+    var omnichannel_orch_remove_chatid_url="";
+    var omnichannel_orch_sms_send_url="";
+    var omnichannel_orch_sms_status_url="";
+    var short_links_url="";
+    var DEFAULT_API_TIMEOUT = "6s";
+    var send_type_http_post = 'http://www.w3.org/TR/scxml/#BasicHTTPEventProcessor';
+    var send_type_http_get = 'http://www.247-inc.com/scxml/#BasicHTTPGetEventProcessor';
+    var send_type_http_delete = 'http://www.247-inc.com/scxml/#BasicHTTPDeleteEventProcessor';
+    var smssend_resp={}, smsstatus_resp = {}, shortlinks_resp={};
+    var statuscount=0;
+
+    function presentAnswer(href_answer, reason, context) {
+      if (context) {
+        actions.push({class:'present.answer', href: href_answer, reason: reason, context: context});
+      } else {
+        actions.push({class:'present.answer', href: href_answer, reason: reason});
+      }
+    }
+      
+  ]]></script>
+  
+  <state id="container">
+    <transition event="scxml.loaded" cond="_event.data">
+      <assign location="q" expr="_event.data.q"/>
+      <assign location="environment" expr="_event.data.env"/>
+    </transition>
+    <transition event="scxml.resumed" cond="_event.data">
+      <assign location="q" expr="_event.data.q"/>
+    </transition>
+    <transition event="connection.connected">
+      <assign location="connectionid" expr="_event.data.connectionid"/>
+      <if cond="In('agentavailability')">
+          <raise event="handling.default"/>
+      </if>
+    </transition>   
+    <transition event="error.execution" target="ending"/>
+    <transition event="session.timeout error" target="ending"/>
+    <transition event="terminate">
+      <script><![CDATA[
+        actions.push({class:'terminate'});
+      ]]></script>
+      <log expr="{actions: JSON.stringify(actions)}" label="channel.terminate"/>
+      <send id="id_terminate" type="connection" targetexpr="connectionid" event="terminate" namelist="actions"/>
+    </transition> 
+    <transition event="send.successful" cond="_event.sendid === 'id_terminate'">
+      <log expr="{event: _event.name, message: _event.data, message:'channel.terminate.send.successful'}" label="channel.terminate"/>
+    </transition>
+
+    <transition event="error.send" cond="_event.sendid === 'id_terminate'">
+      <log expr="{event: _event.name, message: _event.data, message:'channel.terminate.error.send'}" label="channel.terminate"/>
+    </transition>
+      
+    <transition event="escalate">
+      <script><![CDATA[
+        actions.push({class:'escalate', href: href_answer});
+      ]]></script>
+      <log expr="{actions: JSON.stringify(actions)}" label="ivrto.escalate"/>
+      <send id="id_escalate" type="connection" targetexpr="connectionid" event="escalate" namelist="actions"/>
+    </transition>
+    <transition event="send.successful" cond="_event.sendid === 'id_escalate'">
+      <log expr="{event: _event.name, message: _event.data, message:'channel.escalate.send.successful'}" label="channel.escalate"/>
+    </transition>
+
+    <transition event="error.send" cond="_event.sendid === 'id_escalate'">
+      <log expr="{event: _event.name, message: _event.data, message:'channel.escalate.error.send'}" label="channel.escalate"/>
+    </transition>
+    <transition event="present.answer">
+      <script><![CDATA[
+        if (context) {
+          actions.push({class:'present.answer', href: href_answer, reason: reason, context: context});
+        } else {
+          actions.push({class:'present.answer', href: href_answer, reason: reason});
+        }
+      ]]></script>
+      <log expr="{actions: JSON.stringify(actions)}" label="ATLOG:channel.present.present.answer"/>
+      <send id="id_present_answer" type="connection" targetexpr="connectionid" event="present.answer" namelist="actions"/>
+    </transition>
+    <transition event="send.successful" cond="_event.sendid === 'id_present_answer'">
+      <log expr="{event: _event.name, message: _event.data}" label="ATLOG:channel.present_answer.send.successful"/>
+      <assign location="context" expr="null"/> <!-- clean up context -->
+    </transition>
+    <transition event="error.send" cond="_event.sendid === 'id_present_answer'">
+      <log expr="{event: _event.name, message: _event.data}" label="ATLOG:channel.present_answer.error.send"/>
+      <assign location="context" expr="null"/> <!-- clean up context -->
+    </transition>
+
+    <!-- Type: present.prompt -->
+    <!-- The FSM is expecting response from the client like in confirmation states. -->
+    <transition event="present.prompt">
+      <script><![CDATA[
+        if (context) {
+          actions.push({class:'present.prompt', href: href_answer, reason: reason, context: context});
+        } else {
+          actions.push({class:'present.prompt', href: href_answer, reason: reason});
+        }
+      ]]></script>
+      <!-- Display data sent to user channel -->
+      <log expr="{actions: JSON.stringify(actions)}" label="ATLOG:channel.present.prompt"/>
+      <send id="id_present_prompt" type="connection" targetexpr="connectionid" event="present.prompt" namelist="actions"/>
+    </transition>
+
+    <transition event="send.successful" cond="_event.sendid === 'id_present_prompt'">
+      <log expr="{event: _event.name, message: _event.data}" label="ATLOG:channel.present_prompt.send.successful"/>
+      <assign location="context" expr="null"/> <!-- clean up context -->
+    </transition>
+
+    <transition event="error.send" cond="_event.sendid === 'id_present_prompt'">
+      <log expr="{event: _event.name, message: _event.data}" label="ATLOG:channel.present_prompt.error.send"/>
+      <assign location="context" expr="null"/> <!-- clean up context -->
+    </transition>
+
+    <state id="ivr2chat">
+      <include src="beginning" />
+      <include src="validation" />
+      <transition event="smsshorturl" target="smsshorturl"/>      
+      <include src="sms" />
+    </state>  
+    <!-- end ivr2chat -->
+    
+    <final id="ending">
+    </final>
+  </state>
+</scxml>
