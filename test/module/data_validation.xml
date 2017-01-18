@@ -1,0 +1,17 @@
+<state id="data_validation">
+  <onentry>
+    <if cond="DNIS &amp;&amp; ani &amp;&amp; countryCode &amp;&amp; clientId &amp;&amp; sessionId">
+      <raise event="chat_validation"/>
+    <else/>
+      <script><![CDATA[
+          prompt_name =  "validation_fail";
+        ]]></script>
+      <!-- For present.answer, queue into actions array -->
+      <assign location="href_answer" expr="tfs.getKBAPIUrl(environment, prompt_name)"/>
+      <assign location="reason" expr="prompt_name"/>
+      <script><![CDATA[presentAnswer(href_answer,reason);]]></script>
+      <raise event="escalate"/>
+    </if>
+  </onentry>
+</state>
+<!-- end data_validation -->

@@ -1,0 +1,47 @@
+<state id="smsshorturl">
+  <onentry>
+    <script><![CDATA[
+      short_links_url = tfs.getShortLinksAPIUrl(environment);
+    ]]></script>
+
+    <send id="id_shortlinks"
+          typeexpr="send_type_http_post"
+          targetexpr="short_links_url"
+          tfs:fetchtimeoutexpr="DEFAULT_API_TIMEOUT"
+          tfs:enctype="application/json">
+      <param name="address" expr="smsMessage"/>
+      <param name="useShortLinks" expr="'true'"/>
+      <param name="length" expr="'8'"/>
+    </send>
+  </onentry>
+  <transition event="error.send" cond="_event.sendid === 'id_shortlinks'">
+    <log label="Short Links API Failure" expr="'GET to Short Links' + JSON.stringify(_event.data)"/>
+    <script><![CDATA[
+        prompt_name =  "smsshorturl_error_send";
+      ]]></script>
+    <!-- For present.answer, queue into actions array -->
+    <assign location="href_answer" expr="tfs.getKBAPIUrl(environment, prompt_name)"/>
+    <assign location="reason" expr="prompt_name"/>
+    <script><![CDATA[presentAnswer(href_answer,reason);]]></script>
+    <raise event="escalate"/>
+  </transition>
+
+  <transition event="send.successful" cond="_event.sendid === 'id_shortlinks'">
+    <log expr="JSON.stringify(_event.data)" label="ATLOG:channel.id_shortlinks.send.successful"/>  
+    <assign location="shortlinks_resp" expr="_event.data"/>
+    <if cond="shortlinks_resp['short_url']" >
+      <assign location="smsShortMessage" expr="shortlinks_resp['short_url']"/>
+      <raise event="sendsms"/>
+    <else/>
+      <script><![CDATA[
+          prompt_name =  "short_link_failure";
+        ]]></script>
+      <!-- For present.answer, queue into actions array -->
+      <assign location="href_answer" expr="tfs.getKBAPIUrl(environment, prompt_name)"/>
+      <assign location="reason" expr="prompt_name"/>
+      <script><![CDATA[presentAnswer(href_answer,reason);]]></script>
+      <raise event="escalate"/>
+    </if>
+  </transition>
+</state>
+<!-- end smsshorturl -->

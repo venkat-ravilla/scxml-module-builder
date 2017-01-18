@@ -1,0 +1,37 @@
+<state id="remove_chatid">
+  <onentry>
+    <script><![CDATA[
+      omnichannel_orch_remove_chatid_url = tfs.getOmnichannelOrcRemoveChatidAPIUrl(environment,clientConfig,chatId);
+    ]]></script>
+    <send id="id_remove_chatid"
+          typeexpr="send_type_http_delete"
+          targetexpr="omnichannel_orch_remove_chatid_url"
+          tfs:fetchtimeoutexpr="DEFAULT_API_TIMEOUT"
+          tfs:enctype="application/json">
+    </send>
+  </onentry>
+  <transition event="error.send" cond="_event.sendid === 'id_remove_chatid'">
+    <log label="Remove chatid API Failure" expr="'GET to Remove chatid' + JSON.stringify(_event.data)"/>
+    <script><![CDATA[
+        prompt_name =  "remove_chatid_error_send";
+      ]]></script>
+    <!-- For present.answer, queue into actions array -->
+    <assign location="href_answer" expr="tfs.getKBAPIUrl(environment, prompt_name)"/>
+    <assign location="reason" expr="prompt_name"/>
+    <script><![CDATA[presentAnswer(href_answer,reason);]]></script>
+    <raise event="escalate"/>
+  </transition>
+
+  <transition event="send.successful" cond="_event.sendid === 'id_remove_chatid'"> 
+    <log expr="JSON.stringify(_event.data)" label="ATLOG:channel.id_remove_chatid.send.successful"/>         
+    <script><![CDATA[
+        prompt_name =  "chatid_removed";
+      ]]></script>
+    <!-- For present.answer, queue into actions array -->
+    <assign location="href_answer" expr="tfs.getKBAPIUrl(environment, prompt_name)"/>
+    <assign location="reason" expr="prompt_name"/>
+    <script><![CDATA[presentAnswer(href_answer,reason);]]></script>
+    <raise event="escalate"/>
+  </transition>
+</state>
+<!-- end remove_chatid --> 

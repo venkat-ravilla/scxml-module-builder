@@ -1,0 +1,107 @@
+<state id="agentavailability">
+  <onentry>
+    <script><![CDATA[
+      omnichannel_orch_agent_avail_url = tfs.getOmnichannelOrcAgentAvailAPIUrl(environment,clientConfig);
+    ]]></script>
+
+    <send id="id_chatagentavailabilitycheck"
+          typeexpr="send_type_http_post"
+          targetexpr="omnichannel_orch_agent_avail_url"
+          tfs:fetchtimeoutexpr="DEFAULT_API_TIMEOUT"
+          tfs:enctype="application/json">
+      <param name="visitorId" expr="ani"/>
+      <param name="channelSessionId" expr="sessionId"/>
+      <param name="queueId" expr="clientConfig.queueId"/>
+      <param name="chatExpiryTime" expr="60"/>
+      <param name="info" expr="'chat agent availability check for ivr'"/>
+    </send>
+  </onentry>
+  <transition event="error.send" cond="_event.sendid === 'id_chatagentavailabilitycheck'">
+    <log label="Agent API Failure" expr="'GET to Agent Availability' + JSON.stringify(_event.data)"/>
+    <script><![CDATA[
+        prompt_name =  "agentavailability_error_send";
+      ]]></script>
+    <!-- For present.answer, queue into actions array -->
+    <assign location="href_answer" expr="tfs.getKBAPIUrl(environment, prompt_name)"/>
+    <assign location="reason" expr="prompt_name"/>
+    <script><![CDATA[presentAnswer(href_answer,reason);]]></script>
+    <raise event="escalate"/>
+  </transition>
+
+  <transition event="send.successful" cond="_event.sendid === 'id_chatagentavailabilitycheck' &amp;&amp; _event.data">
+    <assign location="agentAvailability_resp" expr="_event.data"/>
+    <log expr="JSON.stringify(_event.data)" label="ATLOG:channel.id_chatagentavailabilitycheck.send.successful"/>
+    <send id="id_channelAvailabilityEvent"
+          typeexpr="send_type_http_post"
+          targetexpr="tfs.getOmnichannelOrcLoggingAPIUrl(environment,clientConfig,'channelAvailability')"
+          tfs:fetchtimeoutexpr="DEFAULT_API_TIMEOUT"
+          tfs:enctype="application/json">
+      <param name="did" expr="ani"/>
+      <param name="channelSessionId" expr="sessionId"/>
+      <param name="channel" expr="'ASSIST'"/>
+      <param name="isChannelAvailable" expr="agentAvailability_resp.offerChat.chatAvailable"/>
+      <param name="isChannelReserved" expr="agentAvailability_resp.offerChat.chatAvailable"/>
+    </send>
+    <if cond="agentAvailability_resp.offerChat &amp;&amp; agentAvailability_resp.offerChat.chatAvailable">
+      <assign location="chatId" expr="agentAvailability_resp.offerChat.chatInfo.chatId"/>
+      <assign location="smsMessage" expr="agentAvailability_resp.offerChat.smsMessage"/>
+      <script><![CDATA[
+          prompt_name =  "agent_available";
+        ]]></script>
+      <!-- For present.answer, queue into actions array -->
+      <assign location="href_answer" expr="tfs.getKBAPIUrl(environment, prompt_name)"/>
+      <assign location="reason" expr="prompt_name"/>
+      <raise event="present.prompt"/>
+    <else/>
+      <script><![CDATA[
+          prompt_name =  "agent_unavailable";
+        ]]></script>
+      <!-- For present.answer, queue into actions array -->
+      <assign location="href_answer" expr="tfs.getKBAPIUrl(environment, prompt_name)"/>
+      <assign location="reason" expr="prompt_name"/>
+      <script><![CDATA[presentAnswer(href_answer,reason);]]></script>
+      <raise event="escalate"/>
+    </if>
+  </transition>
+
+  <transition event="error.send" cond="_event.sendid === 'id_channelAvailabilityEvent'">
+    <log label="Agent Availability Event API Failure" expr="'GET to Agent Availability' + JSON.stringify(_event.data)"/>
+  </transition>
+
+  <transition event="send.successful" cond="_event.sendid === 'id_channelAvailabilityEvent' &amp;&amp; _event.data">
+    <log expr="JSON.stringify(_event.data)" label="ATLOG:channel.id_channelAvailabilityEvent.send.successful"/>
+  </transition>
+  
+  <transition event="handling.default" cond="q=='yes'">
+    <assign location="userResponse" expr="'ACCEPTED'"/>
+    <raise event="channelInvitationResponseEvent"/>
+    <raise event="smsshorturl"/> 
+  </transition>
+  <transition event="handling.default" cond="q=='no'">
+    <assign location="userResponse" expr="'DECLINED'"/>
+    <raise event="channelInvitationResponseEvent"/>
+    <raise event="remove_chatid"/> 
+  </transition>
+
+  <transition event="channelInvitationResponseEvent">
+    <send id="id_channelInvitationResponseEvent"
+          typeexpr="send_type_http_post"
+          targetexpr="tfs.getOmnichannelOrcLoggingAPIUrl(environment,clientConfig,'channelInvitationResponse')"
+          tfs:fetchtimeoutexpr="DEFAULT_API_TIMEOUT"
+          tfs:enctype="application/json">
+      <param name="did" expr="ani"/>
+      <param name="channelSessionId" expr="sessionId"/>
+      <param name="userResponse" expr="userResponse"/>
+    </send>
+  </transition>
+
+  <transition event="error.send" cond="_event.sendid === 'id_channelInvitationResponseEvent'">
+    <log label="Agent Availability Event API Failure" expr="'GET to Agent Availability' + JSON.stringify(_event.data)"/>
+  </transition>
+
+  <transition event="send.successful" cond="_event.sendid === 'id_channelInvitationResponseEvent' &amp;&amp; _event.data">
+    <log expr="JSON.stringify(_event.data)" label="ATLOG:channel.id_channelInvitationResponseEvent.send.successful"/>
+  </transition>
+
+</state>     
+<!-- end agentavailability -->

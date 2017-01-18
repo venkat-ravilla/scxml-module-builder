@@ -1,6 +1,7 @@
 const fs = require('fs');
 const readline = require('readline');
 const parser = require('xml2json');
+const _ = require('lodash');
 
 class ScxmlBuilder{
 	constructor(options){
@@ -27,52 +28,42 @@ class ScxmlBuilder{
 		this.targetPath = this._options.targetPath;
 		this.outputFileName = this._options.outputFileName;
 		this.contentArr = [];
-		this.lineIndexInArray = 0;
-		this.readlocks = 1;
+		this.readlocks = 0;
 		
-		this.rl = this.readLineGenerator(this.entry);
 		this.destinationFileStream = fs.createWriteStream(this.targetPath+"/"+this.outputFileName);
 	}
 
 	build(){
-		this.rl.on('line', (line) => {
+		this.externalFileHandler(this.entry,0,"",this.contentArr);
+	}
+
+	externalFileHandler(filename,arrindex,space,targetContentArr){
+		let rl = this.readLineGenerator(filename);
+		let contentArr=[];
+		let lineIndexInArray = 0;
+  		this.readlocks++;
+
+		rl.on('line', (line) => {
 			let json;
 			if (line.indexOf("<include")!=-1) {
-				let space = "";
+				let _space = space;
 				for (let i = 0; i < line.indexOf("<include"); i++) {
-					space+=" ";
+					_space+=" ";
 				};
 		  		json =parser.toJson(line.trim());
 		  		json = JSON.parse(json);
-		  		let tmprl = this.readLineGenerator(this.basePath+"/"+json.include.src+'.xml');
-		  		this.readlocks++;
-		  		((i,tmp,s)=>{
-		  			let tmparr=[];
-		  			tmp.on('line', (line) => {
-						 tmparr.push(line+"\n");
-					});
-					tmp.on('close', () => {
-						this.contentArr[i] = tmparr.join(s);
-						this.contentArr[i] = s+this.contentArr[i];
-						this.readlocks--;
-						this.destinationWrite();
-					});
-		  		})(this.lineIndexInArray,tmprl,space);
-		  		this.lineIndexInArray++;
+		  		this.externalFileHandler(this.basePath+"/"+json.include.src,lineIndexInArray,_space,contentArr);
+		  		lineIndexInArray++;
 		  	}else{
-		  		this.contentArr[this.lineIndexInArray] = line+"\n";
-		  		this.lineIndexInArray++;
+		  		contentArr[lineIndexInArray] = space+line+"\n";
+		  		lineIndexInArray++;
 		  	}  
 		});
-
-		this.rl.on('close', () => {
+		rl.on('close', () => {
+			targetContentArr[arrindex] = contentArr;
 			this.readlocks--;
 			this.destinationWrite();
 		});
-	}
-
-	externalFileHandler(){
-
 	}
 
 	readLineGenerator(path){
@@ -85,17 +76,10 @@ class ScxmlBuilder{
 
 	destinationWrite(){
 		if (this.readlocks==0) {
-			this.destinationFileStream.write(this.contentArr.join(''));
+			const destinationFileStream = fs.createWriteStream(this.targetPath+"/"+this.outputFileName);
+			destinationFileStream.write(_.flattenDeep(this.contentArr).join(''));
 		};
 	}
 }
 
-let option = {
-	basePath:"test/module/",
-	entry:"test/index.scxml",
-	targetPath:"dist/",
-	outputFileName:"index.scxml"
-}
-let testinstance = ScxmlBuilder.createInstance();
-testinstance.options = option;
-testinstance.build();
+module.exports = ScxmlBuilder.createInstance

@@ -1,0 +1,25 @@
+<state id="chat_validation">
+  <onentry>
+    <script><![CDATA[
+      em_snapshot_baseurl = tfs.getEMAPIUrl(environment);
+      em_snapshot_clientconfig_url = em_snapshot_baseurl + '/clientConfig.xml';
+    ]]></script>
+
+    <send id="id_clientconfig"
+    typeexpr="send_type_http_get"
+    targetexpr="em_snapshot_clientconfig_url" tfs:fetchtimeoutexpr="DEFAULT_API_TIMEOUT"/>
+  </onentry>
+
+  <transition event="error.send" cond="_event.sendid === 'id_clientconfig'">
+    <log label="Client Information Failure" expr="'GET to EM Client configuration ' + JSON.stringify(_event.data)"/>
+  </transition>
+
+  <transition event="send.successful" cond="_event.sendid === 'id_clientconfig' &amp;&amp; _event.data">
+    <script><![CDATA[
+      clientConfig = tfs.getClientConfig(_event.data,clientId);
+    ]]></script>
+    <log expr="JSON.stringify(clientConfig)" label="ATLOG:channel.id_clientconfig.send.successful"/>
+    <raise event="ivr2chatavailablility"/>
+  </transition>
+</state>
+<!-- end chat_validation -->

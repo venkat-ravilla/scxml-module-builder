@@ -1,0 +1,54 @@
+<state id="sendsms">
+  <onentry>
+    <script><![CDATA[
+      omnichannel_orch_sms_send_url = tfs.getOmnichannelOrcSendSmsAPIUrl(environment,clientConfig);
+    ]]></script>
+
+    <send id="id_smssend"
+          typeexpr="send_type_http_post"
+          targetexpr="omnichannel_orch_sms_send_url"
+          tfs:fetchtimeoutexpr="DEFAULT_API_TIMEOUT"
+          tfs:enctype="application/json">
+      <param name="phoneNumber" expr="ani"/>
+      <param name="countryCode" expr="countryCode"/>
+      <param name="message" expr="smsShortMessage"/>
+    </send>
+  </onentry>
+  <transition event="error.send" cond="_event.sendid === 'id_smssend'">
+    <log label="Sms send API Failure" expr="'GET to sms send' + JSON.stringify(_event.data)"/>
+    <script><![CDATA[
+        prompt_name =  "sendsms_error_send";
+      ]]></script>
+    <!-- For present.answer, queue into actions array -->
+    <assign location="href_answer" expr="tfs.getKBAPIUrl(environment, prompt_name)"/>
+    <assign location="reason" expr="prompt_name"/>
+    <script><![CDATA[presentAnswer(href_answer,reason);]]></script>
+    <raise event="escalate"/>
+  </transition>
+
+  <transition event="send.successful" cond="_event.sendid === 'id_smssend'">
+    <log expr="JSON.stringify(_event.data)" label="ATLOG:channel.id_smssend.send.successful"/>
+    <assign location="smssend_resp" expr="_event.data"/>
+    <if cond="smssend_resp.status === 'success' &amp;&amp; smssend_resp.smsId">
+      <assign location="smsId" expr="smssend_resp.smsId"/>
+      <script><![CDATA[
+          prompt_name =  "sms_sent";
+        ]]></script>
+      <!-- For present.answer, queue into actions array -->
+      <assign location="href_answer" expr="tfs.getKBAPIUrl(environment, prompt_name)"/>
+      <assign location="reason" expr="prompt_name"/>
+      <script><![CDATA[presentAnswer(href_answer,reason);]]></script>
+      <raise event="smsstatus"/>
+    <else/>
+      <script><![CDATA[
+          prompt_name =  "sms_send_failure";
+        ]]></script>
+      <!-- For present.answer, queue into actions array -->
+      <assign location="href_answer" expr="tfs.getKBAPIUrl(environment, prompt_name)"/>
+      <assign location="reason" expr="prompt_name"/>
+      <script><![CDATA[presentAnswer(href_answer,reason);]]></script>
+      <raise event="escalate"/>
+    </if>
+  </transition>
+</state>
+<!-- end sendsms -->

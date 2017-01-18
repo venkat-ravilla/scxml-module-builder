@@ -1,0 +1,17 @@
+<state id="ivr2chatavailablility">
+  <onentry>
+    <if cond="clientConfig.IVR2Chat === false">
+      <script><![CDATA[
+          prompt_name =  "ivr2chat_disabled";
+        ]]></script>
+      <!-- For present.answer, queue into actions array -->
+      <assign location="href_answer" expr="tfs.getKBAPIUrl(environment, prompt_name)"/>
+      <assign location="reason" expr="prompt_name"/>
+      <script><![CDATA[presentAnswer(href_answer,reason);]]></script>
+      <raise event="escalate"/>
+    <else/>
+      <raise event="agentavailability"/>
+    </if>
+  </onentry>
+</state>
+<!-- end ivr2chatavailablility -->

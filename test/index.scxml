@@ -145,10 +145,10 @@
     </transition>
 
     <state id="ivr2chat">
-      <include src="beginning" />
-      <include src="validation" />
+      <include src="beginning.xml" />
+      <include src="validation.xml" />
       <transition event="smsshorturl" target="smsshorturl"/>      
-      <include src="sms" />
+      <include src="sms.xml" />
     </state>  
     <!-- end ivr2chat -->
     
